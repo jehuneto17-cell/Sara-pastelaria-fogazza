@@ -1343,11 +1343,6 @@ function showCityModal(){
 }
 const DEF_CATS=[];
 const DEF_ADICIONAIS=[];
-const VAR_BURGER=[
-  {name:'56g Tradicional',price:0},
-  {name:'90g',price:0},
-  {name:'Artesanal',price:0}
-];
 const DEF_PRODS=[];
 
 /* ═══════════════════════════════════════
@@ -1415,39 +1410,11 @@ async function load(){
     try{cats=JSON.parse(localStorage.getItem('sara_categories'))||[]}catch{cats=[]}
     try{adicionais=JSON.parse(localStorage.getItem('sara_adicionais'))||[]}catch{adicionais=[]}
   }
-  // ── MIGRAÇÃO: une Pasteis(8) e Fogazzas(9) em Pasteis e Fogazzas(10) ──
-  migrarCategoriasPasteisEFogazzas();
   // Garante que Pasteis e Fogazzas (id:10) aparece primeiro
   cats.sort((a,b)=>(a.id===10?-1:b.id===10?1:0));
   _fbReady=true;
 }
 
-function migrarCategoriasPasteisEFogazzas(){
-  // Se não há categorias ou produtos carregados (banco vazio / offline), não faz nada.
-  // Evita criar e salvar dados padrão por engano.
-  if(!cats.length || !prods.length) return;
-  let precisaSalvar = false;
-  // Migração 1: une categorias 8 e 9 em 10 (só se já existir a antiga)
-  const temAntiga = cats.some(c=>c.id===8||c.id===9);
-  if(temAntiga){
-    const temNova = cats.some(c=>c.id===10);
-    if(!temNova) cats.push({id:10, name:'Pasteis e Fogazzas', emoji:'\u{1F953}'});
-    cats = cats.filter(c=>c.id!==8 && c.id!==9);
-    prods = prods.map(p=>{
-      if(p.categoryId===8 || p.categoryId===9) return {...p, categoryId:10};
-      return p;
-    });
-    adicionais = adicionais.map(a=>{
-      if(Array.isArray(a.categoryIds)){
-        const ids = a.categoryIds.map(id=>(id===8||id===9)?10:id);
-        return {...a, categoryIds:[...new Set(ids)]};
-      }
-      return a;
-    });
-    precisaSalvar = true;
-  }
-  if(precisaSalvar) saveAll();
-}
 
 // Remove base64 do cfg antes de salvar no Firestore (evita estouro de 1MB)
 function cfgParaFirestore(cfgOrig){
