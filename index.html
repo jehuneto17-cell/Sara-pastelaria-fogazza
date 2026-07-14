@@ -472,6 +472,24 @@ html,body{height:100%;font-family:'Nunito',sans-serif;background:#1A1A1A;display
 .wa-btn:active{transform:scale(.95)}
 
 /* ═══════════════════════════
+   PIX (checkout)
+════════════════════════════ */
+.pix-box{display:none}
+.pix-box.show{display:flex;animation:pixFadeIn .35s ease}
+@keyframes pixFadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.pix-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:var(--radius);padding:18px 16px;box-shadow:var(--shadow);text-align:center}
+.pix-title{font-size:16px;font-weight:900;color:var(--text);margin-bottom:12px}
+.pix-qr-wrap{display:flex;justify-content:center;margin-bottom:14px}
+.pix-qr{width:220px;max-width:80%;height:auto;background:#fff;border:1px solid var(--gray);border-radius:12px;padding:8px}
+.pix-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px}
+.pix-code-wrap{display:flex;flex-direction:column;gap:8px;align-items:stretch;margin-bottom:14px}
+.pix-code{display:block;font-family:'Courier New',monospace;font-size:11px;line-height:1.4;color:var(--text2);background:var(--gray);border-radius:10px;padding:10px 12px;text-align:left;word-break:break-all;max-height:90px;overflow-y:auto}
+.pix-copy-btn{padding:12px 14px;background:var(--dark);border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:900;color:#fff;cursor:pointer;transition:transform .1s ease,background .2s ease}
+.pix-copy-btn:active{transform:scale(.97)}
+.pix-copy-btn.copied{background:var(--green)}
+.pix-warn,.conf-pix-warn{font-size:13px;line-height:1.5;text-align:left;background:#FFF8E1;border:1px solid #FFE08A;color:#7A5B00;border-radius:12px;padding:11px 13px}
+
+/* ═══════════════════════════
    CONFIRMED
 ════════════════════════════ */
 #confirmed{background:var(--bg);align-items:center;justify-content:center;padding:40px 28px;text-align:center}
@@ -1067,6 +1085,21 @@ const db = firebase.firestore();
           <div class="pay-opt on" onclick="pickPay(this,'Pix')">⚡ Pix</div>
         </div>
       </div>
+      <!-- ── BLOCO PIX (QR + Copia e Cola) ── -->
+      <div class="fg pix-box" id="pix-box">
+        <div class="pix-card">
+          <div class="pix-title">⚡ Pague com PIX</div>
+          <div class="pix-qr-wrap">
+            <img src="https://res.cloudinary.com/dv62fwdtv/image/upload/f_auto,q_auto:best,w_600/sara-pastelaria/qr-pix-sara.jpg" alt="QR Code PIX Sara Pastelaria" class="pix-qr" loading="lazy">
+          </div>
+          <div class="pix-label">Ou copie o código PIX Copia e Cola:</div>
+          <div class="pix-code-wrap">
+            <code class="pix-code" id="pix-code">00020101021226900014BR.GOV.BCB.PIX2568pix-qr.mercadopago.com/instore/p/v2/6436d541857943aea11951011117303943530016com.mercadolibre0129https://mpago.la/pos/741587315204000053039865802BR5909UNDEFINED6009SAO PAULO62070503***6304919F</code>
+            <button type="button" class="pix-copy-btn" onclick="copyPixCode(this)">📋 Copiar código</button>
+          </div>
+          <div class="pix-warn">⚠️ <strong>Importante:</strong> Após efetuar o pagamento, envie o comprovante do PIX na mesma conversa do WhatsApp para confirmarmos seu pedido.</div>
+        </div>
+      </div>
       <div class="fg" id="change-fg" style="display:none"><label class="fl">Troco para quanto?</label><input type="number" class="fi" id="f-change" placeholder="Ex: 50"></div>
       <div class="fg"><label class="fl">Observações</label><textarea class="fi fta" id="f-obs" placeholder="Sem cebola, capricha no molho..."></textarea></div>
       <div class="summary-card" id="ck-summary"></div>
@@ -1080,6 +1113,7 @@ const db = firebase.firestore();
       <div class="conf-icon">✓</div>
       <div class="conf-title">Pedido Enviado!</div>
       <div class="conf-sub">Seu pedido foi enviado via WhatsApp.<br>Aguarde a confirmação da loja! 🌭</div>
+      <div class="conf-pix-warn" id="conf-pix-warn" style="display:none;max-width:340px;margin:-12px 0 28px">📎 <strong>Não esqueça:</strong> envie o comprovante do PIX na conversa que abriu no WhatsApp para que a loja confirme e prepare seu pedido.</div>
       <a class="ig-card" href="https://www.instagram.com/sara_pastelaria_e_fogazzaria?igsh=Z2FhMTR0cXlqenJ0" target="_blank" rel="noopener">
         <div class="ig-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1633,7 +1667,16 @@ function goTo(id){
     if(_tempoEl) _tempoEl.textContent = cfg.tempoEntrega || '40–50 min';
     // Ajusta o grid: 2 colunas se sem "local", 3 se com
     document.getElementById('modo-grid').style.gridTemplateColumns = cidadeSelecionada==='itau' ? 'repeat(3,1fr)' : 'repeat(2,1fr)';
+    // Reseta pagamento para Pix (default) toda vez que entra no checkout
+    selPay='Pix';
+    document.querySelectorAll('.pay-opt').forEach(o=>o.classList.toggle('on', o.textContent.includes('Pix')));
+    document.getElementById('change-fg').style.display='none';
+    syncPixBox();
     renderCheckout();
+  }
+  if(id==='confirmed'){
+    const pixWarn=document.getElementById('conf-pix-warn');
+    if(pixWarn) pixWarn.style.display = selPay==='Pix' ? 'block' : 'none';
   }
   if(id==='admin')    renderAdmDashboard();
 
@@ -2858,6 +2901,29 @@ function pickPay(el,m){
   document.querySelectorAll('.pay-opt').forEach(o=>o.classList.remove('on'));
   el.classList.add('on'); selPay=m;
   document.getElementById('change-fg').style.display=m==='Dinheiro'?'flex':'none';
+  syncPixBox();
+}
+/* Mostra o bloco PIX (QR + Copia e Cola) só quando o pagamento é Pix */
+function syncPixBox(){
+  document.getElementById('pix-box')?.classList.toggle('show', selPay==='Pix');
+}
+async function copyPixCode(btn){
+  const code=document.getElementById('pix-code')?.textContent?.trim()||'';
+  if(!code) return;
+  try{
+    await navigator.clipboard.writeText(code);
+  }catch(e){
+    // fallback: navegadores antigos / contexto não-https
+    const ta=document.createElement('textarea');
+    ta.value=code; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e2){}
+    document.body.removeChild(ta);
+  }
+  const original=btn.innerHTML;
+  btn.classList.add('copied');
+  btn.innerHTML='✅ Código copiado!';
+  setTimeout(()=>{ btn.classList.remove('copied'); btn.innerHTML=original; },2200);
 }
 function renderCheckout(){
   const sub=cart.reduce((s,c)=>s+c.price*c.qty,0);
@@ -2913,6 +2979,10 @@ async function sendWhatsApp(){
   msg+=`✅ *TOTAL: R$ ${fmt(tot)}*\n\n`;
   msg+=`💳 *Pagamento:* ${selPay}`;
   if(selPay==='Dinheiro'&&change) msg+=` (troco p/ R$ ${change})`;
+  if(selPay==='Pix'){
+    msg+=`\n\n⚠️ *IMPORTANTE:* Já efetuei o pagamento via PIX. `;
+    msg+=`Vou enviar o comprovante em seguida nesta mesma conversa. 📎`;
+  }
   if(obs) msg+=`\n💬 *Obs:* ${obs}`;
   msg+=`\n🕐 ${time}`;
   window.open(`https://wa.me/${cfg.whatsapp}?text=${encodeURIComponent(msg)}`,'_blank');
